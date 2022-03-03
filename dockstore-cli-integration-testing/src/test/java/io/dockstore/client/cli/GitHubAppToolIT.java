@@ -140,15 +140,26 @@ public class GitHubAppToolIT extends BaseIT {
         Assert.assertTrue(systemOutRule.getLog().contains("Final process status is success"));
     }
 
+    @SuppressWarnings("checkstyle:EmptyCatchBlock")
+    private void flush() {
+        try {
+            Thread.sleep(1000);
+            System.out.flush();
+        } catch (Exception e) {
+        }
+    }
+
     @Test
     public void download() {
         Client.main(new String[]{"workflow", "download", "--entry", ENTRY_PATH_WITH_VERSION, "--config", ResourceHelpers.resourceFilePath("config_file2.txt")});
+        flush();
         Assert.assertTrue(systemOutRule.getLog().contains("GET /workflows/1001/zip/1001 HTTP/1.1"));
     }
 
     @Test
     public void downloadWithZipFlag() {
         Client.main(new String[]{"workflow", "download", "--entry", ENTRY_PATH_WITH_VERSION, "--zip", "--config", ResourceHelpers.resourceFilePath("config_file2.txt")});
+        flush();
         Assert.assertTrue(systemOutRule.getLog().contains("GET /workflows/1001/zip/1001 HTTP/1.1"));
     }
 
