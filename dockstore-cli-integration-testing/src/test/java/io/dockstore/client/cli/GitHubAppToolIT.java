@@ -36,10 +36,10 @@ public class GitHubAppToolIT extends BaseIT {
     public final ExpectedSystemExit systemExit = ExpectedSystemExit.none();
 
     @Rule
-    public final SystemOutRule systemOutRule = new SystemOutRule().enableLog(); // .muteForSuccessfulTests();
+    public final SystemOutRule systemOutRule = new SystemOutRule().enableLog().muteForSuccessfulTests();
 
     @Rule
-    public final SystemErrRule systemErrRule = new SystemErrRule().enableLog(); // .muteForSuccessfulTests();
+    public final SystemErrRule systemErrRule = new SystemErrRule().enableLog().muteForSuccessfulTests();
 
 
     @Before
@@ -145,8 +145,12 @@ public class GitHubAppToolIT extends BaseIT {
     public void download() {
         Client.main(new String[]{"workflow", "download", "--entry", ENTRY_PATH_WITH_VERSION, "--config", ResourceHelpers.resourceFilePath("config_file2.txt")});
         Assert.assertTrue(systemOutRule.getLog().contains("GET /workflows/1001/zip/1001 HTTP/1.1"));
+    }
+
+    @Test
+    public void downloadWithZipFlag() {
         Client.main(new String[]{"workflow", "download", "--entry", ENTRY_PATH_WITH_VERSION, "--zip", "--config", ResourceHelpers.resourceFilePath("config_file2.txt")});
-        Assert.assertEquals(2, StringUtils.countMatches(systemOutRule.getLog(), "GET /workflows/1001/zip/1001 HTTP/1.1"));
+        Assert.assertTrue(systemOutRule.getLog().contains("GET /workflows/1001/zip/1001 HTTP/1.1"));
     }
 
     @Test
