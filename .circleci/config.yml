@@ -73,7 +73,7 @@ jobs:
       - send_coverage
       - run:
           name: SonarCloud scan - coverage
-          command: ./mvnw sonar:sonar
+          command: ./mvnw sonar:sonar -T 2
 
   integration-tests:
     parameters:
@@ -121,7 +121,7 @@ jobs:
       - install_confidential_test_data
       - run:
           name: build
-          command: ./mvnw -B clean install -DskipTests
+          command: ./mvnw -B clean install -DskipTests -T 2
 
         # Running scan must occur after build
       - run_git_secrets_scan
@@ -339,7 +339,7 @@ commands:
     steps:
       - run:
           name: run tests
-          command: mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate $MAVEN_GOAL -P$TESTING_PROFILE,coverage -ntp
+          command: mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate $MAVEN_GOAL -P$TESTING_PROFILE,coverage -ntp -T 2
 
   save_test_results:
     steps:
@@ -377,8 +377,8 @@ commands:
     steps:
       - run:
           name: ensure artifacts are installed
-          command: ./mvnw clean install -DskipTests
+          command: ./mvnw clean install -DskipTests -T 2
       - run:
           name: run toil tests
-          command: ./mvnw -P wes-integration-tests verify
+          command: ./mvnw -P wes-integration-tests verify -T 2
 
