@@ -43,17 +43,22 @@ workflows:
             - build
           context:
             - sonarcloud
-      - integration-tests:
-          matrix:
-            parameters:
-              testing_profile: ["non-confidential-tests",
-              "confidential-workflow-tests",
-              "confidential-tool-tests",
-              "singularity-tests"]
+      - non-confidential-tests:
           <<: *common_filters
           requires:
             - build
-
+      - confidential-workflow-tests:
+          <<: *common_filters
+          requires:
+            - build
+      - confidential-tool-tests:
+          <<: *common_filters
+          requires:
+            - build
+      - singularity-tests:
+          <<: *common_filters
+          requires:
+            - build
       - wes-toil-test:
           <<: *common_filters
           requires:
@@ -75,7 +80,8 @@ jobs:
           name: SonarCloud scan - coverage
           command: ./mvnw sonar:sonar
 
-  integration-tests:
+  non-confidential-tests:
+    parallelism: 4
     parameters:
       testing_profile:
         type: string
@@ -86,7 +92,67 @@ jobs:
     # https://circleci.com/docs/2.0/building-docker-images/#mounting-folders
     executor: machine_integration_test_exec
     environment:
-      TESTING_PROFILE: << parameters.testing_profile >>
+      TESTING_PROFILE: non-confidential-tests
+      TEST_LIST: non-confidential.txt
+      MAVEN_GOAL: verify
+    steps:
+      - setup_for_integration_tests
+      - run_tests
+      - save_test_results
+      - send_coverage
+  confidential-workflow-tests:
+    parallelism: 4
+    parameters:
+      testing_profile:
+        type: string
+    # We must use machine executor instead of Docker executor and setup_remote_docker
+    # https://circleci.com/docs/2.0/executor-intro/#machine
+    # perhaps because cwltool cannot mount a volume from our job space
+    # into CircleCI remote Docker
+    # https://circleci.com/docs/2.0/building-docker-images/#mounting-folders
+    executor: machine_integration_test_exec
+    environment:
+      TESTING_PROFILE: confidential-workflow-tests
+      TEST_LIST: workflow_confidential.txt
+      MAVEN_GOAL: verify
+    steps:
+      - setup_for_integration_tests
+      - run_tests
+      - save_test_results
+      - send_coverage
+  confidential-tool-tests:
+    parallelism: 4
+    parameters:
+      testing_profile:
+        type: string
+    # We must use machine executor instead of Docker executor and setup_remote_docker
+    # https://circleci.com/docs/2.0/executor-intro/#machine
+    # perhaps because cwltool cannot mount a volume from our job space
+    # into CircleCI remote Docker
+    # https://circleci.com/docs/2.0/building-docker-images/#mounting-folders
+    executor: machine_integration_test_exec
+    environment:
+      TESTING_PROFILE: confidential-tool-tests
+      TEST_LIST: tool_confidential.txt
+      MAVEN_GOAL: verify
+    steps:
+      - setup_for_integration_tests
+      - run_tests
+      - save_test_results
+      - send_coverage
+  singularity-tests:
+    parameters:
+      testing_profile:
+        type: string
+    # We must use machine executor instead of Docker executor and setup_remote_docker
+    # https://circleci.com/docs/2.0/executor-intro/#machine
+    # perhaps because cwltool cannot mount a volume from our job space
+    # into CircleCI remote Docker
+    # https://circleci.com/docs/2.0/building-docker-images/#mounting-folders
+    executor: machine_integration_test_exec
+    environment:
+      TESTING_PROFILE: singularity-tests
+      TEST_LIST: toil.txt
       MAVEN_GOAL: verify
     steps:
       - setup_for_integration_tests
@@ -118,6 +184,7 @@ jobs:
           key: dockstore-cli-java-{{ checksum "pom.xml" }}
       - install_yq
       - install-git-secrets
+      - create_test_lists
       - install_confidential_test_data
       - run:
           name: build
@@ -339,7 +406,27 @@ commands:
     steps:
       - run:
           name: run tests
-          command: mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate $MAVEN_GOAL -P$TESTING_PROFILE,coverage -ntp
+          command: |
+            if [ $CIRCLE_NODE_TOTAL != 1 ]
+            then
+              TESTS_TO_RUN=$(cat temp/test-lists/IT/$TEST_LIST | circleci tests split --split-by=timings | tr '\n' ',')
+              echo $TESTS_TO_RUN
+              mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate -P$TESTING_PROFILE,coverage -ntp \
+              clean $MAVEN_GOAL -Dit.test=$TESTS_TO_RUN -DfailIfNoTests=false
+            else
+              mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate clean $MAVEN_GOAL -P$TESTING_PROFILE,coverage -ntp
+            fi
+
+  run_parallel_tests:
+    steps:
+      - run:
+          name: run parallel tests
+          command: |
+            TESTS_TO_RUN=$(cat temp/test-lists/IT/$TEST_LIST | circleci tests split --split-by=timings | tr '\n' ',')
+            echo $TESTS_TO_RUN
+            ./mvnw -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate -P$TESTING_PROFILE,coverage -ntp \
+            clean verify -Dit.test=$TESTS_TO_RUN -DfailIfNoTests=false
+            
 
   save_test_results:
     steps:
@@ -382,3 +469,9 @@ commands:
           name: run toil tests
           command: ./mvnw -P wes-integration-tests verify
 
+  create_test_lists:
+    - run:
+        name: Generate test lists
+        command: bash scripts/generate-test-lists.sh
+    - store_artifacts:
+        path: temp/test-lists
