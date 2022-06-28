@@ -85,7 +85,8 @@ make_file_names_fully_qualified_class_paths
 
 
 # Get ALL Confidential Tests
-CATEGORY=ConfidentialTest.class
+CATEGORY="ConfidentialTest.class\|BaseIT"
+# Many confidential tests extend BaseIT which has the category of ConfidentialTest
 OUTPUT_TEST_FILE=workflow_confidential.txt
 generate_test_list
 
