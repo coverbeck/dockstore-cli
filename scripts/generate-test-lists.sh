@@ -47,8 +47,6 @@ function generate_test_list {
   grep -v -x -f "$PREFIX"/"$OUTPUT_TEST_FILE" "$PREFIX"/"$REMAINING_TEST_FILE" > "$PREFIX"/"$TEMP"
   cp "$PREFIX"/"$TEMP" "$PREFIX"/"$REMAINING_TEST_FILE"
 
-  FILE_TO_CHANGE="$PREFIX"/"$OUTPUT_TEST_FILE"
-  make_file_names_fully_qualified_class_paths
 }
 
 
@@ -71,20 +69,20 @@ find . -name "*IT\.java" -or -name "IT*\.java" -or -name "*ITCase\.java" > "$PRE
 
 
 # Get Toil ITs
-CATEGORY=ToilCompatibleTest.class\|ToilOnlyTest.class
+CATEGORY="ToilCompatibleTest.class\|ToilOnlyTest.class"
 OUTPUT_TEST_FILE=toil.txt
 generate_test_list
+FILE_TO_CHANGE="$PREFIX"/"$OUTPUT_TEST_FILE"
+make_file_names_fully_qualified_class_paths
 
 
 # Get Singularity Tests
 CATEGORY=SingularityTest.class
 OUTPUT_TEST_FILE=singularity.txt
 generate_test_list
+FILE_TO_CHANGE="$PREFIX"/"$OUTPUT_TEST_FILE"
+make_file_names_fully_qualified_class_paths
 
-# Get Language Parsing ITs
-CATEGORY=LanguageParsingTest.class
-OUTPUT_TEST_FILE=language-parsing.txt
-generate_test_list
 
 # Get ALL Confidential Tests
 CATEGORY=ConfidentialTest.class
@@ -101,6 +99,8 @@ REMAINING_TEST_FILE=workflow_confidential.txt
 CATEGORY=ToolTest.class
 OUTPUT_TEST_FILE=tool_confidential.txt
 generate_test_list
+FILE_TO_CHANGE="$PREFIX"/"$OUTPUT_TEST_FILE"
+make_file_names_fully_qualified_class_paths
 
 # Convert all confidential workflow test file names to fully qualified class paths
 FILE_TO_CHANGE="$PREFIX"/"$REMAINING_TEST_FILE"
