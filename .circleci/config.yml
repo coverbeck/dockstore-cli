@@ -82,9 +82,6 @@ jobs:
 
   non-confidential-tests:
     parallelism: 4
-    parameters:
-      testing_profile:
-        type: string
     # We must use machine executor instead of Docker executor and setup_remote_docker
     # https://circleci.com/docs/2.0/executor-intro/#machine
     # perhaps because cwltool cannot mount a volume from our job space
@@ -102,9 +99,6 @@ jobs:
       - send_coverage
   confidential-workflow-tests:
     parallelism: 4
-    parameters:
-      testing_profile:
-        type: string
     # We must use machine executor instead of Docker executor and setup_remote_docker
     # https://circleci.com/docs/2.0/executor-intro/#machine
     # perhaps because cwltool cannot mount a volume from our job space
@@ -122,9 +116,6 @@ jobs:
       - send_coverage
   confidential-tool-tests:
     parallelism: 4
-    parameters:
-      testing_profile:
-        type: string
     # We must use machine executor instead of Docker executor and setup_remote_docker
     # https://circleci.com/docs/2.0/executor-intro/#machine
     # perhaps because cwltool cannot mount a volume from our job space
@@ -141,9 +132,6 @@ jobs:
       - save_test_results
       - send_coverage
   singularity-tests:
-    parameters:
-      testing_profile:
-        type: string
     # We must use machine executor instead of Docker executor and setup_remote_docker
     # https://circleci.com/docs/2.0/executor-intro/#machine
     # perhaps because cwltool cannot mount a volume from our job space
@@ -256,7 +244,7 @@ commands:
           command: |
             scripts/check-licenses.sh
           environment:
-              TESTING_PROFILE: automated-review
+            TESTING_PROFILE: automated-review
 
   check_pom_files:
     steps:
@@ -269,6 +257,13 @@ commands:
             fi
           environment:
             TESTING_PROFILE: automated-review
+  create_test_lists:
+    steps:
+      - run:
+          name: Generate test lists
+          command: bash scripts/generate-test-lists.sh
+      - store_artifacts:
+          path: temp/test-lists
 
   run_git_secrets_scan:
     steps:
@@ -321,17 +316,17 @@ commands:
 
   install_postgres_sql_client:
     steps:
-     - run:
-         name: Install postgresql client
-         command: |
-           sudo rm -rf /var/lib/apt/lists/*
-           # heroku.com is not updating their keys
-           # https://github.com/heroku/cli/issues/1464
-           curl https://cli-assets.heroku.com/apt/release.key | sudo apt-key add -
-           sudo apt update
-           # NOTE: this may be installing latest client; perhaps should
-           # specify version
-           sudo apt install -y postgresql-client
+      - run:
+          name: Install postgresql client
+          command: |
+            sudo rm -rf /var/lib/apt/lists/*
+            # heroku.com is not updating their keys
+            # https://github.com/heroku/cli/issues/1464
+            curl https://cli-assets.heroku.com/apt/release.key | sudo apt-key add -
+            sudo apt update
+            # NOTE: this may be installing latest client; perhaps should
+            # specify version
+            sudo apt install -y postgresql-client
 
   setup_for_unit_tests:
     steps:
@@ -426,7 +421,7 @@ commands:
             echo $TESTS_TO_RUN
             ./mvnw -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate -P$TESTING_PROFILE,coverage -ntp \
             clean verify -Dit.test=$TESTS_TO_RUN -DfailIfNoTests=false
-            
+  
 
   save_test_results:
     steps:
@@ -469,9 +464,4 @@ commands:
           name: run toil tests
           command: ./mvnw -P wes-integration-tests verify
 
-  create_test_lists:
-    - run:
-        name: Generate test lists
-        command: bash scripts/generate-test-lists.sh
-    - store_artifacts:
-        path: temp/test-lists
+
