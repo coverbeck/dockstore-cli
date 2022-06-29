@@ -62,9 +62,9 @@ IT_LIST=all.txt
 # Using same wild card patterns the Failsafe Plugin uses
 # Get all
 # https://maven.apache.org/surefire/maven-failsafe-plugin/examples/inclusion-exclusion.html
-find . -name "*IT\.java" -or -name "IT*\.java" -or -name "*ITCase\.java" > "$PREFIX"/all.txt
-FILE_TO_CHANGE="$PREFIX"/all.txt
-make_file_names_fully_qualified_class_paths
+cat $(find . -name "*IT\.java" -or -name "IT*\.java" -or -name "*ITCase\.java") > "$PREFIX"/all.txt
+#FILE_TO_CHANGE="$PREFIX"/all.txt
+#make_file_names_fully_qualified_class_paths
 
 
 ## Get Toil ITs
