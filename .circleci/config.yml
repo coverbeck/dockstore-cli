@@ -417,7 +417,7 @@ commands:
       - run:
           name: run parallel tests
           command: |
-            TESTS_TO_RUN=$(cat temp/test-lists/IT/$TEST_LIST | circleci tests split --split-by=timings --time-default=0s | tr '\n' ',')
+            TESTS_TO_RUN=$(cat temp/test-lists/IT/$TEST_LIST | circleci tests split --split-by=timings --time-default=0s | tr '\n' ',') 
             echo $TESTS_TO_RUN
             ./mvnw -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate -P$TESTING_PROFILE,coverage -ntp \
             clean verify -Dit.test=$TESTS_TO_RUN -DfailIfNoTests=false
