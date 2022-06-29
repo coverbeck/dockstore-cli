@@ -63,8 +63,8 @@ IT_LIST=all.txt
 # Get all
 # https://maven.apache.org/surefire/maven-failsafe-plugin/examples/inclusion-exclusion.html
 find . -name "*IT\.java" -or -name "IT*\.java" -or -name "*ITCase\.java"  > "$PREFIX"/all.txt
-#FILE_TO_CHANGE="$PREFIX"/all.txt
-#make_file_names_fully_qualified_class_paths
+FILE_TO_CHANGE="$PREFIX"/all.txt
+make_file_names_fully_qualified_class_paths
 
 
 ## Get Toil ITs
