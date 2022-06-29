@@ -57,6 +57,8 @@ import static org.junit.Assert.assertTrue;
  *
  * @author aduncan
  */
+
+@Ignore //TODO DELETE: THIS IS FOR TESTING PURPOSES ONLY
 @Category({ ConfidentialTest.class, ToolTest.class })
 public class GeneralIT extends BaseIT {
 
