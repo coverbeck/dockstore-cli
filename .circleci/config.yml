@@ -90,7 +90,7 @@ jobs:
     executor: machine_integration_test_exec
     environment:
       TESTING_PROFILE: non-confidential-tests
-      TEST_LIST: non-confidential.txt
+      TEST_LIST: all.txt
       MAVEN_GOAL: verify
     steps:
       - setup_for_integration_tests
@@ -107,7 +107,7 @@ jobs:
     executor: machine_integration_test_exec
     environment:
       TESTING_PROFILE: confidential-workflow-tests
-      TEST_LIST: workflow_confidential.txt
+      TEST_LIST: all.txt
       MAVEN_GOAL: verify
     steps:
       - setup_for_integration_tests
@@ -124,7 +124,7 @@ jobs:
     executor: machine_integration_test_exec
     environment:
       TESTING_PROFILE: confidential-tool-tests
-      TEST_LIST: tool_confidential.txt
+      TEST_LIST: all.txt
       MAVEN_GOAL: verify
     steps:
       - setup_for_integration_tests
@@ -140,7 +140,7 @@ jobs:
     executor: machine_integration_test_exec
     environment:
       TESTING_PROFILE: singularity-tests
-      TEST_LIST: toil.txt
+      TEST_LIST: all.txt
       MAVEN_GOAL: verify
     steps:
       - setup_for_integration_tests
@@ -417,7 +417,7 @@ commands:
       - run:
           name: run parallel tests
           command: |
-            TESTS_TO_RUN=$(cat temp/test-lists/IT/$TEST_LIST | circleci tests split --split-by=timings | tr '\n' ',')
+            TESTS_TO_RUN=$(cat temp/test-lists/IT/$TEST_LIST | circleci tests split --split-by=timings --time-default=0s | tr '\n' ',')
             echo $TESTS_TO_RUN
             ./mvnw -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate -P$TESTING_PROFILE,coverage -ntp \
             clean verify -Dit.test=$TESTS_TO_RUN -DfailIfNoTests=false
