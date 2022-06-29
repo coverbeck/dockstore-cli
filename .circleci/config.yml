@@ -1,467 +1,101 @@
-version: 2.1
-parameters:
-  java-tag:
-    type: string
-    default: "11.0.12"
-orbs:
-  build-tools: circleci/build-tools@2.7.0
-executors:
-  unit_tests_executor:
-    docker: # run the steps with Docker
-      - image: cimg/openjdk:<< pipeline.parameters.java-tag >>
+#!/bin/bash
 
-  machine_integration_test_exec:
-    machine: # run the steps with Ubuntu VM
-      image: ubuntu-2004:202104-01
-    environment:
-      PGHOST: 127.0.0.1
-    resource_class: medium
+#
+  # Copyright 2022 OICR and UCSC
+  #
+  # Licensed under the Apache License, Version 2.0 (the "License");
+  # you may not use this file except in compliance with the License.
+  # You may obtain a copy of the License at
+  #
+  #           http://www.apache.org/licenses/LICENSE-2.0
+  #
+  # Unless required by applicable law or agreed to in writing, software
+  # distributed under the License is distributed on an "AS IS" BASIS,
+  # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  # See the License for the specific language governing permissions and
+  # limitations under the License.
+  #
 
-  toil_wes_test_executor:
-    machine: # run the steps with Ubuntu VM
-      image: ubuntu-2004:202104-01
-    resource_class: medium
+  # This file generates a list of test files for each profile
+  # This file ensures that all tests are run by having a catch all statement at the end
 
-common_filters: &common_filters
-  filters:
-    tags:
-      only: /.*/
-    branches:
-      ignore:
-        - gh-pages
-
-workflows:
-  version: 2
-  everything:
-    jobs:
-      - build:
-          <<: *common_filters
-
-      - unit-tests:
-          <<: *common_filters
-          requires:
-            - build
-          context:
-            - sonarcloud
-      - non-confidential-tests:
-          <<: *common_filters
-          requires:
-            - build
-      - confidential-workflow-tests:
-          <<: *common_filters
-          requires:
-            - build
-      - confidential-tool-tests:
-          <<: *common_filters
-          requires:
-            - build
-      - singularity-tests:
-          <<: *common_filters
-          requires:
-            - build
-      - wes-toil-test:
-          <<: *common_filters
-          requires:
-            - build
-
-
-jobs:
-  unit-tests:
-    executor: unit_tests_executor
-    environment:
-      TESTING_PROFILE: unit-tests
-      MAVEN_GOAL: test
-    steps:
-      - setup_for_unit_tests
-      - run_tests
-      - save_test_results
-      - send_coverage
-      - run:
-          name: SonarCloud scan - coverage
-          command: ./mvnw sonar:sonar
-
-  non-confidential-tests:
-    parallelism: 4
-    # We must use machine executor instead of Docker executor and setup_remote_docker
-    # https://circleci.com/docs/2.0/executor-intro/#machine
-    # perhaps because cwltool cannot mount a volume from our job space
-    # into CircleCI remote Docker
-    # https://circleci.com/docs/2.0/building-docker-images/#mounting-folders
-    executor: machine_integration_test_exec
-    environment:
-      TESTING_PROFILE: non-confidential-tests
-      TEST_LIST: all.txt
-      MAVEN_GOAL: verify
-    steps:
-      - setup_for_integration_tests
-      - run_tests
-      - save_test_results
-      - send_coverage
-  confidential-workflow-tests:
-    parallelism: 4
-    # We must use machine executor instead of Docker executor and setup_remote_docker
-    # https://circleci.com/docs/2.0/executor-intro/#machine
-    # perhaps because cwltool cannot mount a volume from our job space
-    # into CircleCI remote Docker
-    # https://circleci.com/docs/2.0/building-docker-images/#mounting-folders
-    executor: machine_integration_test_exec
-    environment:
-      TESTING_PROFILE: confidential-workflow-tests
-      TEST_LIST: all.txt
-      MAVEN_GOAL: verify
-    steps:
-      - setup_for_integration_tests
-      - run_tests
-      - save_test_results
-      - send_coverage
-  confidential-tool-tests:
-    parallelism: 4
-    # We must use machine executor instead of Docker executor and setup_remote_docker
-    # https://circleci.com/docs/2.0/executor-intro/#machine
-    # perhaps because cwltool cannot mount a volume from our job space
-    # into CircleCI remote Docker
-    # https://circleci.com/docs/2.0/building-docker-images/#mounting-folders
-    executor: machine_integration_test_exec
-    environment:
-      TESTING_PROFILE: confidential-tool-tests
-      TEST_LIST: all.txt
-      MAVEN_GOAL: verify
-    steps:
-      - setup_for_integration_tests
-      - run_tests
-      - save_test_results
-      - send_coverage
-  singularity-tests:
-    # We must use machine executor instead of Docker executor and setup_remote_docker
-    # https://circleci.com/docs/2.0/executor-intro/#machine
-    # perhaps because cwltool cannot mount a volume from our job space
-    # into CircleCI remote Docker
-    # https://circleci.com/docs/2.0/building-docker-images/#mounting-folders
-    executor: machine_integration_test_exec
-    environment:
-      TESTING_PROFILE: singularity-tests
-      TEST_LIST: all.txt
-      MAVEN_GOAL: verify
-    steps:
-      - setup_for_integration_tests
-      - run_tests
-      - save_test_results
-      - send_coverage
-
-  wes-toil-test:
-    executor: toil_wes_test_executor
-    steps:
-      - get_workspace_and_dependencies
-      - setup_for_unit_tests
-      - setup_toil_wes_server
-      - run_toil_wes_tests
-
-
-  build:
-    docker: # run the steps with Docker
-      - image: cimg/openjdk:<< pipeline.parameters.java-tag >>
-        environment:
-          # Java can read cgroup. Sadly the cgroup in
-          # CircleCI is wrong. Have to manually set. Nothing to do with surefire
-          # plugin, it has its own JVM. The two of these must add up to a bit less than 4GB.
-          JAVA_TOOL_OPTIONS: -Xmx512m
-    steps: # a collection of executable commands
-      - checkout # check out source code to working directory
-      - restore_cache: # restore the saved cache after the first run or if `pom.xml` has changed
-          # Read about caching dependencies: https://circleci.com/docs/2.0/caching/
-          key: dockstore-cli-java-{{ checksum "pom.xml" }}
-      - install_yq
-      - install-git-secrets
-      - create_test_lists
-      - install_confidential_test_data
-      - run:
-          name: build
-          command: ./mvnw -B clean install -DskipTests
-
-        # Running scan must occur after build
-      - run_git_secrets_scan
-      - check_license_file
-      - check_pom_files
-      - clean_and_save_cache
-      - persist_to_workspace:
-          root: .
-          paths:
-            - .
-
-
-commands:
-  setup_machine:
-    steps:
-      - run: # Useful for verifying default versions on machine image
-          name: Java/Maven/Python versions
-          command: |
-            java -version
-            mvn -v
-            python3 -V
-      - run:
-          name: Docker-Compose
-          command: docker-compose up -d
-
-  install_confidential_test_data:
-    steps:
-      - run:
-          name: decrypt and expand confidential test data
-          command: |
-            sudo apt install openssl -y
-            bash scripts/decrypt.sh
-
-  send_coverage:
-    steps:
-      - run:
-          name: send coverage
-          command: bash <(curl -s https://codecov.io/bash) -F ${TESTING_PROFILE//-} || echo "Codecov did not collect coverage reports"
-
-  install_dockerize:
-    steps:
-      - run:
-          name: install dockerize
-          command: wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
-          environment:
-            DOCKERIZE_VERSION: v0.6.1
-
-  wait_for_db:
-    steps:
-      - run:
-          name: Wait for db
-          command: dockerize -wait tcp://localhost:5432 -timeout 1m
-
-  wait_for_elastic_search:
-    steps:
-      - run:
-          name: Wait for ES
-          command: |
-            wget --output-document /dev/null --waitretry=5 --tries=10 --retry-connrefused localhost:9200 || true
-
-  check_license_file:
-    steps:
-      - run:
-          name: check generated THIRD-PARTY-LICENCES.txt matches checked-in file
-          command: |
-            scripts/check-licenses.sh
-          environment:
-            TESTING_PROFILE: automated-review
-
-  check_pom_files:
-    steps:
-      - run:
-          name: check generated flattened POMs match checked-in files.
-          command: |
-            # need better solution, but leaving this as-is fouls up the release since the Maven release plugin doesn't know about the flattened poms
-            if [[ -z "${CIRCLE_TAG}" ]]; then
-              scripts/check_poms.sh
-            fi
-          environment:
-            TESTING_PROFILE: automated-review
-  create_test_lists:
-    steps:
-      - run:
-          name: Generate test lists
-          command: bash scripts/generate-test-lists.sh
-      - store_artifacts:
-          path: temp/test-lists
-
-  run_git_secrets_scan:
-    steps:
-      - run:
-          name: Run git-secrets scan on dockstore repository
-          # Needs to be after a build so that the correct configuration is set
-          # by the exec-maven plugin
-          command: |
-            git secrets --scan
-
-  clean_and_save_cache:
-    steps:
-      - run:
-          name: clean the cache
-          command: |
-            rm -rf ~/.m2/repository/io/dockstore
-            rm -rf ~/.m2/repository/.cache/download-maven-plugin directory
-      - save_cache: # saves the project dependencies
-          paths:
-            - ~/.m2
-          key: dockstore-cli-java-{{ checksum "pom.xml" }}
-
-  install_yq:
-    steps:
-      - run:
-          name: Install yq
-          command: |
-            wget https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64
-            chmod a+x yq_linux_amd64
-            sudo mv yq_linux_amd64 /usr/bin/yq
-
-  install-git-secrets:
-    steps:
-      - run:
-          name: Install git-secrets
-          command: |
-            wget --no-verbose -O git-secrets-1.3.0.tar.gz https://github.com/awslabs/git-secrets/archive/1.3.0.tar.gz
-            tar -zxf git-secrets-1.3.0.tar.gz
-            cd git-secrets-1.3.0
-            sudo make install
-
-  setup_postgres:
-    steps:
-      - run:
-          name: setup postgres user and DB
-          command: |
-            psql -c "create user dockstore with password 'dockstore' createdb;" -U postgres
-            psql -c 'create database webservice_test with owner = dockstore;' -U postgres
-            psql -c "ALTER USER dockstore WITH superuser;" -U postgres
-
-  install_postgres_sql_client:
-    steps:
-      - run:
-          name: Install postgresql client
-          command: |
-            sudo rm -rf /var/lib/apt/lists/*
-            # heroku.com is not updating their keys
-            # https://github.com/heroku/cli/issues/1464
-            curl https://cli-assets.heroku.com/apt/release.key | sudo apt-key add -
-            sudo apt update
-            # NOTE: this may be installing latest client; perhaps should
-            # specify version
-            sudo apt install -y postgresql-client
-
-  setup_for_unit_tests:
-    steps:
-      - get_workspace_and_dependencies
-      - install_yq
-      - install-git-secrets
-
-  setup_for_integration_tests:
-    steps:
-      - get_workspace_and_dependencies
-      - setup_machine
-      - setup_for_tests
-      - wait_for_elastic_search
-      - setup_integration_test_dependencies
-
-  get_workspace_and_dependencies:
-    steps:
-      - attach_workspace:
-          at: .
-      - restore_cache: # restore the saved cache after the first run or if `pom.xml` has changed
-          # Read about caching dependencies: https://circleci.com/docs/2.0/caching/
-          key: dockstore-java-{{ checksum "pom.xml" }}
-      - restore_cache:
-          key: dockstore-web-cache-{{ .Environment.CIRCLE_JOB }}-{{ .Environment.CACHE_SEGMENTED_VERSION }}-segmented
-
-  setup_for_tests:
-    steps:
-      - install_yq
-      - install-git-secrets
-      - install_postgres_sql_client
-      - setup_postgres
-      - install_dockerize
-      - wait_for_db
-
-  setup_integration_test_dependencies:
-    steps:
-      - run:
-          name: install pip
-          command: |
-            sudo apt update
-            sudo apt install python3-distutils python3-dev
-            curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-            python3 get-pip.py
-            # For debug purposes, a python3 version was installed in the image, pip is untagged
-            python3 --version
-            pip3 --version
-      # https://circleci.com/docs/2.0/env-vars/#using-parameters-and-bash-environment
-      - run:
-          name: Setup pip dependencies environment variables
-          command: |
-            # install-tests.sh installs cwltool at /home/circleci/.local/bin
-            # on the executor machine
-            # (called from setup_integration_test_dependencies)
-            # It may be advisible to change this install location
-            # but at this time how to do that is unknown
-            # so we have to add /home/circleci/.local/bin to the PATH
-            export CWLTOOL_PATH=${HOME}/.local/bin
-            echo "export CWLTOOL_PATH=${HOME}/.local/bin" >> $BASH_ENV
-
-            export GO_PATH=/usr/local
-            echo "export GO_PATH=/usr/local" >> $BASH_ENV
-            export SINGULARITY_PATH=${HOME}/go
-            echo "export SINGULARITY_PATH=${HOME}/go" >> $BASH_ENV
-
-            echo "export PATH=${CWLTOOL_PATH}:${GO_PATH}/go/bin:${PATH}:${SINGULARITY_PATH}/bin" >> $BASH_ENV
-      - run:
-          name: install pip dependencies
-          command: scripts/install-tests.sh
-      - install_confidential_test_data
-
-  run_tests:
-    steps:
-      - run:
-          name: run tests
-          command: |
-            if [ $CIRCLE_NODE_TOTAL != 1 ]
-            then
-              TESTS_TO_RUN=$(cat temp/test-lists/IT/$TEST_LIST | circleci tests split --split-by=timings --time-default=0s | tr '\n' ',')
-              echo $TESTS_TO_RUN
-              mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate -P$TESTING_PROFILE,coverage -ntp \
-              clean $MAVEN_GOAL -Dit.test=$TESTS_TO_RUN -DfailIfNoTests=false
-            else
-              mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate clean $MAVEN_GOAL -P$TESTING_PROFILE,coverage -ntp
-            fi
-
-  run_parallel_tests:
-    steps:
-      - run:
-          name: run parallel tests
-          command: |
-            TESTS_TO_RUN=$(cat temp/test-lists/IT/$TEST_LIST | circleci tests split --split-by=timings --time-default=0s | tr '\n' ',') 
-            echo $TESTS_TO_RUN
-            ./mvnw -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate -P$TESTING_PROFILE,coverage -ntp \
-            clean verify -Dit.test=$TESTS_TO_RUN -DfailIfNoTests=false
+  set -o errexit
+  set -o nounset
+  set -o pipefail
   
+  # This prefix ensure that the test lists do not interfere with anything else
+  BASE_PREFIX=temp/test-lists
+  
+  # This function changes file names in $FILE_TO_CHANGE to fully qualified class paths. For example,
+  # ./dockstore-integration-testing/src/test/java/io/dockstore/client/cli/BitBucketGitHubWorkflowIT.java
+  # becomes,
+  # io.dockstore.client.cli.BitBucketGitHubWorkflowIT
+  function make_file_names_fully_qualified_class_paths {
+  sed -i 's+.*java/++g; s+/+.+g; s+\.java$++g' "$FILE_TO_CHANGE"
+}
 
-  save_test_results:
-    steps:
-      - run:
-          name: Save test results
-          command: |
-            mkdir -p ~/test-results/junit/
-            find . -type f -regex ".*/target/.*-reports/.*xml" -exec cp {} ~/test-results/junit/ \;
-          when: always
-      - store_test_results:
-          path: ~/test-results
-      - save_cache:
-          key: dockstore-web-cache-{{ .Environment.CIRCLE_JOB }}-{{ .Environment.CACHE_SEGMENTED_VERSION }}-segmented
-          paths:
-            - /tmp/dockstore-web-cache
-      - store_artifacts:
-          path: /tmp/dockstore-web-cache.misses.log
+  # The temporary file used in the following function
+  TEMP=temp_for_categorising_tests.txt
+  
+  # This functions consumes $IT_LIST and determines which of those files have the listed Junit category (CATEGORY) in them
+  # such as BitBucketTest.class
+  # Note: Does not acknowledge comments
+  function generate_test_list {
+  # Reset or create temp file
+  grep -l "$CATEGORY" $(cat "$PREFIX"/"$IT_LIST") > "$PREFIX"/"$OUTPUT_TEST_FILE"
+}
 
-  setup_toil_wes_server:
-    steps:
-      - run:
-          name: create required directories to mount. Requires execute permissions.
-          command: |
-            sudo mkdir /var/lib/toil && sudo chmod a+rwx -R /var/lib/toil
 
-            sudo mkdir /var/lib/cwl && sudo chmod a+rwx -R /var/lib/toil
+  #####################################
+  # Get list of all Integration Tests #
+  #####################################
 
-            sudo mkdir /tmp/toil-workflows && sudo chmod a+rwx -R /var/lib/toil
-      - run:
-          name: execute toil docker compose
-          command: docker-compose up -d
-          working_directory: toil/
+  # We are setting the Remaining test file to first be non-confidential tests, we can
 
-  run_toil_wes_tests:
-    steps:
-      - run:
-          name: ensure artifacts are installed
-          command: ./mvnw clean install -DskipTests
-      - run:
-          name: run toil tests
-          command: ./mvnw -P wes-integration-tests verify
+  # Modify prefix for integration tests
+  PREFIX="$BASE_PREFIX""/IT"
+  mkdir -p "$PREFIX"
+  
+  
+  IT_LIST=all.txt
+  
+  # Using same wild card patterns the Failsafe Plugin uses
+  # Get all
+  # https://maven.apache.org/surefire/maven-failsafe-plugin/examples/inclusion-exclusion.html
+  find . -name "*IT\.java" -or -name "IT*\.java" -or -name "*ITCase\.java" > "$PREFIX"/all.txt
+  FILE_TO_CHANGE="$PREFIX"/all.txt
+  make_file_names_fully_qualified_class_paths
+
+
+  ## Get Toil ITs
+  #CATEGORY="ToilCompatibleTest.class\|ToilOnlyTest.class"
+  #OUTPUT_TEST_FILE=toil.txt
+  #generate_test_list
+  #FILE_TO_CHANGE="$PREFIX"/"$OUTPUT_TEST_FILE"
+  #make_file_names_fully_qualified_class_paths
+  #
+  ## Get confidential tests
+  #CATEGORY="ConfidentialTest.class\|BaseIT"
+  #OUTPUT_TEST_FILE=confidential.txt
+  #generate_test_list
+  #
+  #IT_LIST=confidential.txt
+  #
+  ## Get confidential tool tests
+  #CATEGORY="ToolTest.class"
+  #OUTPUT_TEST_FILE=tool_confidential.txt
+  #generate_test_list
+  #
+  #
+  #
+  ## Get confidential all tests that are not tool
+  #OUTPUT_TEST_FILE=workflow_confidential.txt
+  #grep -v -x -f "$PREFIX"/tool_confidential.txt "$PREFIX"/confidential.txt > "$PREFIX"/"$OUTPUT_TEST_FILE"
+  #
+  #
+  ## Get non-confidential tests
+  #grep -v -x -f "$PREFIX"/confidential.txt "$PREFIX"/all.txt > "$PREFIX"/non-confidential.txt
+
+
 
 
