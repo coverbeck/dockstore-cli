@@ -16,6 +16,7 @@
 
 package io.dockstore.client.cli;
 
+import io.dockstore.common.CommonTestUtilities;
 import java.util.List;
 
 import com.google.common.collect.Lists;
@@ -31,6 +32,7 @@ import io.swagger.client.ApiException;
 import io.swagger.client.api.WorkflowsApi;
 import io.swagger.client.model.Workflow;
 import io.swagger.client.model.WorkflowVersion;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -56,6 +58,11 @@ public class GeneralWDLWorkflowIT extends BaseIT {
     @Rule
     public final SystemErrRule systemErrRule = new FlushingSystemErrRule().enableLog().muteForSuccessfulTests();
 
+    @Before
+    @Override
+    public void resetDBBetweenTests() throws Exception {
+        CommonTestUtilities.cleanStatePrivate2(SUPPORT, false);
+    }
 
     /**
      * This tests that the information for a workflow can only be seen if it is published
