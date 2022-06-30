@@ -24,10 +24,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import com.google.common.collect.Lists;
-import com.google.gson.Gson;
 import io.dockstore.client.cli.nested.AbstractEntryClient;
 import io.dockstore.client.cli.nested.ToolClient;
 import io.dockstore.client.cli.nested.WorkflowClient;
@@ -45,7 +43,6 @@ import io.swagger.client.model.WorkflowVersion;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.ExpectedSystemExit;
@@ -57,7 +54,6 @@ import org.junit.rules.TestWatcher;
 import org.junit.runner.Description;
 
 import static io.dockstore.client.cli.Client.CLIENT_ERROR;
-import static io.dockstore.client.cli.Client.IO_ERROR;
 import static io.dockstore.common.DescriptorLanguage.CWL;
 import static io.dockstore.common.DescriptorLanguage.WDL;
 import static org.junit.Assert.assertEquals;
@@ -603,45 +599,6 @@ public class LaunchTestIT {
     }
 
     @Test
-    public void runToolWithDirectoriesConversion() {
-        File cwlFile = new File(ResourceHelpers.resourceFilePath("dir6.cwl"));
-
-        ArrayList<String> args = new ArrayList<>();
-        args.add("tool");
-        args.add("convert");
-        args.add("cwl2json");
-        args.add("--cwl");
-        args.add(cwlFile.getAbsolutePath());
-
-        runClientCommand(args);
-        final String log = systemOutRule.getLog();
-        Gson gson = new Gson();
-        final Map<String, Map<String, Object>> map = gson.fromJson(log, Map.class);
-        assertEquals(2, map.size());
-        assertEquals("Directory", map.get("indir").get("class"));
-    }
-
-    @Test
-    public void runWorkflowConvert() {
-        File cwlFile = new File(ResourceHelpers.resourceFilePath("smcFusionQuant-INTEGRATE-workflow.cwl"));
-
-        ArrayList<String> args = new ArrayList<>();
-        args.add("workflow");
-        args.add("convert");
-        args.add("cwl2json");
-        args.add("--cwl");
-        args.add(cwlFile.getAbsolutePath());
-
-        runClientCommand(args);
-        final String log = systemOutRule.getLog();
-        Gson gson = new Gson();
-        final Map<String, Map<String, Object>> map = gson.fromJson(log, Map.class);
-        assertEquals(4, map.size());
-        assertTrue(
-            map.containsKey("TUMOR_FASTQ_1") && map.containsKey("TUMOR_FASTQ_2") && map.containsKey("index") && map.containsKey("OUTPUT"));
-    }
-
-    @Test
     public void cwlCorrectWithCache() {
         //Test when content and extension are cwl  --> no need descriptor
 
@@ -660,20 +617,6 @@ public class LaunchTestIT {
         runWorkflow(cwlFile, args, api, usersApi, client, true);
     }
 
-    private void runClientCommand(ArrayList<String> args) {
-        args.add(0, ResourceHelpers.resourceFilePath("config"));
-        args.add(0, "--config");
-        args.add(0, "--script");
-        Client.main(args.toArray(new String[0]));
-    }
-
-    private void runClientCommandConfig(ArrayList<String> args, File config) {
-        //used to run client with a specified config file
-        args.add(0, config.getPath());
-        args.add(0, "--config");
-        args.add(0, "--script");
-        Client.main(args.toArray(new String[0]));
-    }
 
     private void runToolThreaded(File cwlFile, ArrayList<String> args, ContainersApi api, UsersApi usersApi, Client client) {
         Client.SCRIPT.set(true);
@@ -1126,115 +1069,6 @@ public class LaunchTestIT {
     }
 
     @Test
-    @Ignore("Detection code is not robust enough for biowardrobe wdl using --local-entry")
-    public void toolAsWorkflow() {
-        File cwlFile = new File(ResourceHelpers.resourceFilePath("dir6.cwl"));
-        File cwlJSON = new File(ResourceHelpers.resourceFilePath("dir6.cwl.json"));
-
-        ArrayList<String> args = new ArrayList<>();
-        args.add("workflow");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(cwlFile.getAbsolutePath());
-        args.add("--json");
-        args.add(cwlJSON.getAbsolutePath());
-
-        exit.expectSystemExit();
-        exit.checkAssertionAfterwards(
-            () -> assertTrue("Out should suggest to run as tool instead", systemErrRule.getLog().contains("Expected a workflow but the")));
-        runClientCommand(args);
-    }
-
-    @Test
-    public void workflowAsTool() {
-        File file = new File(ResourceHelpers.resourceFilePath("noInput.cwl"));
-        File json = new File(ResourceHelpers.resourceFilePath("1st-workflow-job.json"));
-        ArrayList<String> args = new ArrayList<>();
-        args.add("tool");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(file.getAbsolutePath());
-        args.add("--json");
-        args.add(json.getAbsolutePath());
-
-        exit.expectSystemExit();
-        exit.checkAssertionAfterwards(
-            () -> assertTrue("Out should suggest to run as workflow instead", systemErrRule.getLog().contains("Expected a tool but the")));
-        runClientCommand(args);
-    }
-
-    @Test
-    public void cwlNoOutput() {
-        File file = new File(ResourceHelpers.resourceFilePath("noOutput.cwl"));
-        File json = new File(ResourceHelpers.resourceFilePath("1st-workflow-job.json"));
-        ArrayList<String> args = new ArrayList<>();
-        args.add("tool");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(file.getAbsolutePath());
-        args.add("--json");
-        args.add(json.getAbsolutePath());
-
-        exit.expectSystemExit();
-        exit.checkAssertionAfterwards(() -> assertTrue("output should include an error message and exit",
-            systemErrRule.getLog().contains("Required fields that are missing from CWL file : 'outputs'")));
-        runClientCommand(args);
-    }
-
-    @Test
-    public void cwlIncompleteOutput() {
-        File file = new File(ResourceHelpers.resourceFilePath("incompleteOutput.cwl"));
-        File json = new File(ResourceHelpers.resourceFilePath("1st-workflow-job.json"));
-        ArrayList<String> args = new ArrayList<>();
-        args.add("tool");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(file.getAbsolutePath());
-        args.add("--json");
-        args.add(json.getAbsolutePath());
-
-        runClientCommand(args);
-
-        assertTrue("output should include an error message", systemErrRule.getLog().contains("\"outputs\" section is not valid"));
-    }
-
-    @Test
-    public void cwlIdContainsNonWord() {
-        File file = new File(ResourceHelpers.resourceFilePath("idNonWord.cwl"));
-        File json = new File(ResourceHelpers.resourceFilePath("1st-workflow-job.json"));
-        ArrayList<String> args = new ArrayList<>();
-        args.add("tool");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(file.getAbsolutePath());
-        args.add("--json");
-        args.add(json.getAbsolutePath());
-
-        exit.expectSystemExit();
-        exit.checkAssertionAfterwards(() -> assertTrue("output should have started provisioning",
-            systemOutRule.getLog().contains("Provisioning your input files to your local machine")));
-        runClientCommand(args);
-    }
-
-    @Test
-    public void cwlMissingIdParameters() {
-        File file = new File(ResourceHelpers.resourceFilePath("missingIdParameters.cwl"));
-        File json = new File(ResourceHelpers.resourceFilePath("1st-workflow-job.json"));
-        ArrayList<String> args = new ArrayList<>();
-        args.add("tool");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(file.getAbsolutePath());
-        args.add("--json");
-        args.add(json.getAbsolutePath());
-
-        runClientCommand(args);
-
-        assertTrue("output should include an error message",
-            systemErrRule.getLog().contains("while parsing a block collection"));
-    }
-
-    @Test
     public void entry2jsonNoVersion() throws IOException {
         /*
          * Make a runtime JSON template for input to the workflow
@@ -1308,83 +1142,6 @@ public class LaunchTestIT {
         workflowClient.downloadTargetEntry("quay.io/collaboratory/dockstore-tool-linux-sort:2.0.0", ToolDescriptor.TypeEnum.WDL, false);
     }
 
-    @Test
-    public void cwl2jsonNoOutput() {
-        exit.expectSystemExit();
-        File file = new File(ResourceHelpers.resourceFilePath("noOutput.cwl"));
-        ArrayList<String> args = new ArrayList<>();
-        args.add("tool");
-        args.add("convert");
-        args.add("cwl2json");
-        args.add("--cwl");
-        args.add(file.getAbsolutePath());
-
-        runClientCommand(args);
-        exit.checkAssertionAfterwards(() -> assertTrue("output should include an error message",
-            systemErrRule.getLog().contains("\"outputs section is not valid\"")));
-    }
-
-    @Test
-    public void malJsonWorkflowWdlLocal() {
-        //checks if json input has broken syntax for workflows
-
-        File helloWdl = new File(ResourceHelpers.resourceFilePath("hello.wdl"));
-        File jsonFile = new File(ResourceHelpers.resourceFilePath("testInvalidJSON.json"));
-        ArrayList<String> args = new ArrayList<>();
-        args.add("workflow");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(helloWdl.getAbsolutePath());
-        args.add("--json");
-        args.add(jsonFile.getAbsolutePath());
-
-        exit.expectSystemExit();
-        exit.checkAssertionAfterwards(() -> assertTrue("output should include an error message",
-            systemErrRule.getLog().contains("Could not launch, syntax error in json file: " + jsonFile)));
-        File config = new File(ResourceHelpers.resourceFilePath("clientConfig"));
-        runClientCommandConfig(args, config);
-    }
-
-    @Test
-    public void malJsonToolWdlLocal() {
-        //checks if json input has broken syntax for tools
-
-        File helloWdl = new File(ResourceHelpers.resourceFilePath("hello.wdl"));
-        File jsonFile = new File(ResourceHelpers.resourceFilePath("testInvalidJSON.json"));
-        ArrayList<String> args = new ArrayList<>();
-        args.add("tool");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(helloWdl.getAbsolutePath());
-        args.add("--json");
-        args.add(jsonFile.getAbsolutePath());
-
-        exit.expectSystemExit();
-        exit.checkAssertionAfterwards(() -> assertTrue("output should include an error message",
-            systemErrRule.getLog().contains("Could not launch, syntax error in json file: " + jsonFile)));
-        File config = new File(ResourceHelpers.resourceFilePath("clientConfig"));
-        runClientCommandConfig(args, config);
-    }
-
-    @Test
-    public void provisionInputWithPathSpaces() {
-        //Tests if file provisioning can handle a json parameter that specifies a file path containing spaces
-        File helloWDL = new File(ResourceHelpers.resourceFilePath("helloSpaces.wdl"));
-        File helloJSON = new File(ResourceHelpers.resourceFilePath("helloSpaces.json"));
-
-        ArrayList<String> args = new ArrayList<>();
-        args.add("workflow");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(helloWDL.getAbsolutePath());
-        args.add("--json");
-        args.add(helloJSON.getPath());
-
-        File config = new File(ResourceHelpers.resourceFilePath("clientConfig"));
-        runClientCommandConfig(args, config);
-
-        assertTrue("output should include a successful cromwell run", systemOutRule.getLog().contains("Cromwell exit code: 0"));
-    }
 
     @Test
     public void cwlNullInputParameter() {
@@ -1396,85 +1153,4 @@ public class LaunchTestIT {
         runTool(nullCWL, nullJSON, false);
     }
 
-    @Test
-    public void missingTestParameterFileWDLFailure() {
-        // Run a workflow without specifying test parameter files, defer errors to the
-        // Cromwell workflow engine.
-        File file = new File(ResourceHelpers.resourceFilePath("hello.wdl"));
-        ArrayList<String> args = new ArrayList<>();
-        args.add("workflow");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(file.getAbsolutePath());
-
-        File config = new File(ResourceHelpers.resourceFilePath("clientConfig"));
-        exit.expectSystemExitWithStatus(IO_ERROR);
-        runClientCommandConfig(args, config);
-        assertTrue("This workflow cannot run without test files, it should raise an exception from the workflow engine",
-                systemOutRule.getLog().contains("problems running command:"));
-    }
-
-    @Test
-    public void missingTestParameterFileWDLSuccess() {
-        // Run a workflow without specifying test parameter files, defer errors to the
-        // Cromwell workflow engine.
-        File file = new File(ResourceHelpers.resourceFilePath("no-input-echo.wdl"));
-        ArrayList<String> args = new ArrayList<>();
-        args.add("workflow");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(file.getAbsolutePath());
-
-        File config = new File(ResourceHelpers.resourceFilePath("clientConfig"));
-        runClientCommandConfig(args, config);
-        assertTrue("output should include a successful cromwell run", systemOutRule.getLog().contains("Cromwell exit code: 0"));
-
-    }
-
-    @Test
-    public void missingTestParameterFileCWL() {
-        // Tests that the CWLrunner is able to handle workflows that do not specify
-        // test parameter files.
-        File file = new File(ResourceHelpers.resourceFilePath("no-input-echo.cwl"));
-        ArrayList<String> args = new ArrayList<>();
-        args.add("workflow");
-        args.add("launch");
-        args.add("--local-entry");
-        args.add(file.getAbsolutePath());
-
-        File config = new File(ResourceHelpers.resourceFilePath("clientConfig"));
-        exit.expectSystemExitWithStatus(1);
-        runClientCommandConfig(args, config);
-        // FIXME: The CWLTool should be able to execute this workflow, there is an
-        //        issue with how outputs are handled.
-        //        https://github.com/dockstore/dockstore/issues/4922
-        if (false) {
-            assertTrue("CWLTool should be able to run this workflow without any problems",
-                    systemOutRule.getLog().contains("[job no-input-echo.cwl] completed success"));
-        }
-    }
-
-    @Test
-    public void duplicateTestParameterFile() {
-        // Return client failure if both --json and --yaml are passed
-        File file = new File(ResourceHelpers.resourceFilePath("wrongExtcwl.wdl"));
-        File helloJSON = new File(ResourceHelpers.resourceFilePath("helloSpaces.json"));
-        File helloYAML = new File(ResourceHelpers.resourceFilePath("hello.yaml"));
-
-        ArrayList<String> args = new ArrayList<>();
-        args.add("workflow");
-        args.add("launch");
-        args.add("--entry");
-        args.add(file.getAbsolutePath());
-        args.add("--json");
-        args.add(helloJSON.getPath());
-        args.add("--yaml");
-        args.add(helloYAML.getPath());
-
-        File config = new File(ResourceHelpers.resourceFilePath("clientConfig"));
-        exit.expectSystemExitWithStatus(CLIENT_ERROR);
-        exit.checkAssertionAfterwards(() -> assertTrue("Client error should be returned",
-                systemErrRule.getLog().contains(AbstractEntryClient.MULTIPLE_TEST_FILE_ERROR_MESSAGE)));
-        runClientCommandConfig(args, config);
-    }
 }
