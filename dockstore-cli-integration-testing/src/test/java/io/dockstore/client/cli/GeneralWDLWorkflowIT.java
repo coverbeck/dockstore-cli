@@ -16,10 +16,10 @@
 
 package io.dockstore.client.cli;
 
-import io.dockstore.common.CommonTestUtilities;
 import java.util.List;
 
 import com.google.common.collect.Lists;
+import io.dockstore.common.CommonTestUtilities;
 import io.dockstore.common.ConfidentialTest;
 import io.dockstore.common.FlushingSystemErrRule;
 import io.dockstore.common.FlushingSystemOutRule;
