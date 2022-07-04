@@ -406,10 +406,10 @@ commands:
             then
               TESTS_TO_RUN=$(cat temp/test-lists/IT/$TEST_LIST | circleci tests split --split-by=timings --time-default=0s | tr '\n' ',')
               echo $TESTS_TO_RUN
-              mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate -P$TESTING_PROFILE,coverage -ntp \
-              clean $MAVEN_GOAL -Dit.test=$TESTS_TO_RUN -DfailIfNoTests=false
+              ./mvnw -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate -P$TESTING_PROFILE,coverage -ntp \
+              clean $MAVEN_GOAL -Dit.test=$TESTS_TO_RUN -DfailIfNoTests=false -DskipTests
             else
-              mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate clean $MAVEN_GOAL -P$TESTING_PROFILE,coverage -ntp
+              ./mvnw -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate clean $MAVEN_GOAL -P$TESTING_PROFILE,coverage -ntp
             fi
 
   run_parallel_tests:
