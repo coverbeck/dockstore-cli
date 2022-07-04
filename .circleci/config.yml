@@ -183,10 +183,14 @@ jobs:
       - check_license_file
       - check_pom_files
       - clean_and_save_cache
+#      - persist_to_workspace:
+#          root: .
+#          paths:
+#            - .
       - persist_to_workspace:
           root: .
           paths:
-            - .
+            - temp/test-lists
 
 
 commands:
@@ -331,6 +335,8 @@ commands:
   setup_for_unit_tests:
     steps:
 #      - get_workspace_and_dependencies
+      - attach_workspace:
+            at: .
       - checkout
       - install_yq
       - install-git-secrets
@@ -338,6 +344,8 @@ commands:
   setup_for_integration_tests:
     steps:
 #      - get_workspace_and_dependencies
+      - attach_workspace:
+            at: .
       - checkout
       - setup_machine
       - setup_for_tests
