@@ -442,7 +442,7 @@ commands:
               mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate -P$TESTING_PROFILE,coverage -ntp \
               clean $MAVEN_GOAL -Dit.test=$TESTS_TO_RUN -DfailIfNoTests=false
             else
-              mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate clean $MAVEN_GOAL -P$TESTING_PROFILE,coverage -ntp
+              mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate clean install -P$TESTING_PROFILE,coverage -ntp
             fi
 
   run_parallel_tests:
