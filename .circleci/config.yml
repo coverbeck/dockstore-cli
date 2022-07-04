@@ -335,6 +335,7 @@ commands:
   setup_for_unit_tests:
     steps:
 #      - get_workspace_and_dependencies
+      - checkout
       - attach_workspace:
             at: .
       - checkout
@@ -344,9 +345,9 @@ commands:
   setup_for_integration_tests:
     steps:
 #      - get_workspace_and_dependencies
+      - checkout
       - attach_workspace:
             at: .
-      - checkout
       - setup_machine
       - setup_for_tests
       - wait_for_elastic_search
