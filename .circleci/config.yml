@@ -502,8 +502,6 @@ commands:
       - run:
           name: Rename and move coverage reports
           command: |
-            pwd
-            find . -name "*jacoco*"
             mkdir coverage
             cp ./reports/target/site/jacoco-aggregate/jacoco.xml coverage/${CIRCLE_JOB}-${CIRCLE_NODE_INDEX}.xml
       - persist_to_workspace:
