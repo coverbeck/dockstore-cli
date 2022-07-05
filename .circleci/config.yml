@@ -215,9 +215,6 @@ jobs:
       - restore_cache:
           key: dockstore-web-cache-{{ .Environment.CIRCLE_JOB }}-{{ .Environment.CACHE_SEGMENTED_VERSION }}-segmented
       - run:
-          name: build
-          command: ./mvnw clean install -DskipTests
-      - run:
           name: SonarCloud scan - coverage
           command: ./mvnw -Dsonar.coverage.jacoco.xmlReportPaths=../coverage/* sonar:sonar
 
