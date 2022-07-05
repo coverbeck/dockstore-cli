@@ -63,15 +63,6 @@ workflows:
           <<: *common_filters
           requires:
             - build
-      - sonar-cloud:
-          <<: *common_filters
-          requires:
-            - unit-tests
-            - non-confidential-tests
-            - confidential-workflow-tests
-            - confidential-tool-tests
-            - singularity-tests
-            - wes-toil-test
 
 
 jobs:
@@ -83,8 +74,11 @@ jobs:
     steps:
       - setup_for_unit_tests
       - run_tests
-      - persist_coverage
       - save_test_results
+      - send_coverage
+      - run:
+          name: SonarCloud scan - coverage
+          command: ./mvnw sonar:sonar
 
   non-confidential-tests:
     parallelism: 4
@@ -103,7 +97,6 @@ jobs:
       - run_tests
       - save_test_results
       - send_coverage
-      - persist_coverage
   confidential-workflow-tests:
     parallelism: 4
     # We must use machine executor instead of Docker executor and setup_remote_docker
@@ -121,7 +114,6 @@ jobs:
       - run_tests
       - save_test_results
       - send_coverage
-      - persist_coverage
   confidential-tool-tests:
     parallelism: 4
     # We must use machine executor instead of Docker executor and setup_remote_docker
@@ -139,7 +131,6 @@ jobs:
       - run_tests
       - save_test_results
       - send_coverage
-      - persist_coverage
   singularity-tests:
     # We must use machine executor instead of Docker executor and setup_remote_docker
     # https://circleci.com/docs/2.0/executor-intro/#machine
@@ -156,7 +147,6 @@ jobs:
       - run_tests
       - save_test_results
       - send_coverage
-      - persist_coverage
 
   wes-toil-test:
     executor: toil_wes_test_executor
@@ -165,7 +155,6 @@ jobs:
       - setup_for_unit_tests
       - setup_toil_wes_server
       - run_toil_wes_tests
-      - persist_coverage
 
 
   build:
@@ -198,25 +187,6 @@ jobs:
           root: .
           paths:
             - .
-  sonar-cloud:
-    docker: # run the steps with Docker
-      - image: cimg/openjdk:<< pipeline.parameters.java-tag >>
-        environment:
-          # Java can read cgroup. Sadly the cgroup in
-          # CircleCI is wrong. Have to manually set. Nothing to do with surefire
-          # plugin, it has its own JVM. The two of these must add up to a bit less than 4GB.
-          JAVA_TOOL_OPTIONS: -Xmx512m
-    steps:
-      - attach_workspace:
-          at: .
-      - restore_cache: # restore the saved cache after the first run or if `pom.xml` has changed
-          # Read about caching dependencies: https://circleci.com/docs/2.0/caching/
-          key: dockstore-java-{{ checksum "pom.xml" }}
-      - restore_cache:
-          key: dockstore-web-cache-{{ .Environment.CIRCLE_JOB }}-{{ .Environment.CACHE_SEGMENTED_VERSION }}-segmented
-      - run:
-          name: SonarCloud scan - coverage
-          command: ./mvnw -Dsonar.coverage.jacoco.xmlReportPaths=../coverage/* sonar:sonar
 
 
 commands:
@@ -439,7 +409,7 @@ commands:
               mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate -P$TESTING_PROFILE,coverage -ntp \
               clean $MAVEN_GOAL -Dit.test=$TESTS_TO_RUN -DfailIfNoTests=false
             else
-              mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate clean install -P$TESTING_PROFILE,coverage -ntp
+              mvn -B org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-aggregate clean $MAVEN_GOAL -P$TESTING_PROFILE,coverage -ntp
             fi
 
   run_parallel_tests:
@@ -494,14 +464,4 @@ commands:
           name: run toil tests
           command: ./mvnw -P wes-integration-tests verify
 
-  persist_coverage:
-    steps:
-      - run:
-          name: Rename and move coverage reports
-          command: |
-            mkdir coverage
-            cp ./reports/target/site/jacoco-aggregate/jacoco.xml coverage/${CIRCLE_JOB}-${CIRCLE_NODE_INDEX}.xml
-      - persist_to_workspace:
-          root: .
-          paths:
-            - coverage
+
