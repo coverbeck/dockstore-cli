@@ -81,7 +81,6 @@ jobs:
           command: ./mvnw sonar:sonar
 
   non-confidential-tests:
-    parallelism: 2
     # We must use machine executor instead of Docker executor and setup_remote_docker
     # https://circleci.com/docs/2.0/executor-intro/#machine
     # perhaps because cwltool cannot mount a volume from our job space
@@ -98,7 +97,6 @@ jobs:
       - save_test_results
       - send_coverage
   confidential-workflow-tests:
-    parallelism: 2
     # We must use machine executor instead of Docker executor and setup_remote_docker
     # https://circleci.com/docs/2.0/executor-intro/#machine
     # perhaps because cwltool cannot mount a volume from our job space
@@ -115,7 +113,6 @@ jobs:
       - save_test_results
       - send_coverage
   confidential-tool-tests:
-    parallelism: 2
     # We must use machine executor instead of Docker executor and setup_remote_docker
     # https://circleci.com/docs/2.0/executor-intro/#machine
     # perhaps because cwltool cannot mount a volume from our job space
