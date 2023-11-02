@@ -1,3 +1,4 @@
+test
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/c583635906d84de5a1b5f62068fc26be)](https://www.codacy.com/gh/dockstore/dockstore-cli/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=dockstore/dockstore-cli&amp;utm_campaign=Badge_Grade)
 [![codecov](https://codecov.io/gh/dockstore/dockstore-cli/branch/master/graph/badge.svg)](https://codecov.io/gh/dockstore/dockstore-cli)
 [![Website](https://img.shields.io/website/https/dockstore.org.svg)](https://dockstore.org)
